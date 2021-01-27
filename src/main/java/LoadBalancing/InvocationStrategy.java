@@ -1,8 +1,15 @@
 package LoadBalancing;
 
-public interface IInvocationStrategy {
-    void setProvidersCount(int count);
-    int nextProvider();
-    void includeProvider(int providerIndex);
-    void excludeProvider(int providerIndex);
+public abstract class InvocationStrategy {
+    protected int providersCount;
+
+    public InvocationStrategy(int providersCount) {
+        this.providersCount = providersCount;
+    }
+
+    public void setProvidersCount(int count) {
+        this.providersCount = count;
+    }
+
+    public abstract int nextProvider();
 }

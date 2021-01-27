@@ -2,31 +2,15 @@ package LoadBalancing;
 
 import java.util.Random;
 
-public class RandomIvocation implements IInvocationStrategy{
-    private int providersCount;
+public class RandomInvocation extends InvocationStrategy {
     Random random = new Random();
 
-    public RandomIvocation(int providersCount) {
-        this.providersCount = providersCount;
-    }
-
-    @Override
-    public void setProvidersCount(int count) {
-        this.providersCount = count;
+    public RandomInvocation(int providersCount) {
+        super(providersCount);
     }
 
     @Override
     public int nextProvider() {
         return random.nextInt(providersCount);
-    }
-
-    @Override
-    public void includeProvider(int providerIndex) {
-
-    }
-
-    @Override
-    public void excludeProvider(int providerIndex) {
-
     }
 }

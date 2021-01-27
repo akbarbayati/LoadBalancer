@@ -1,12 +1,12 @@
-package ILoadBalancer;
+package LoadBalancing;
 
-import IInvocationStrategy.IInvocationStrategy;
+import java.util.Optional;
 
 public interface ILoadBalancer {
-    String get();
+    Optional<String> get();
     boolean subscribe(IProvider provider);
     void checkProviders();
-    void setInvocationStrategy(IInvocationStrategy strategy);
+    void setInvocationStrategy(InvocationStrategy strategy);
     void includeProvider(int providerIndex);
     void excludeProvider(int providerIndex);
     boolean checkClusterCapacityLimit();
