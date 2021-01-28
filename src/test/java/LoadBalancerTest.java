@@ -10,20 +10,26 @@ import java.util.stream.IntStream;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class LoadBalancerTest {
-    class FakeProvider implements IProvider {
+    class FakeProvider extends Provider {
         private final int id;
+        private boolean alive = true;
+
         public FakeProvider(int id) {
             this.id = id;
+        }
+
+        public void setAlive(boolean alive) {
+            this.alive = alive;
+        }
+
+        @Override
+        public boolean getAlive() {
+            return alive;
         }
 
         @Override
         public String get() {
             return "Provider" + id;
-        }
-
-        @Override
-        public boolean check() {
-            return true;
         }
     }
 
@@ -33,7 +39,7 @@ public class LoadBalancerTest {
 
         InvocationStrategy roundRobinInvocation = new RoundRobinInvocation(providers.size());
 
-        ILoadBalancer loadBalancer = new LoadBalancer(roundRobinInvocation);
+        ILoadBalancer loadBalancer = new LoadBalancer(roundRobinInvocation, 1000);
         for (IProvider provider : providers) {
             assertTrue(loadBalancer.subscribe(provider));
         }
@@ -51,7 +57,7 @@ public class LoadBalancerTest {
 
         InvocationStrategy randomInvocation = new RandomInvocation(providers.size());
 
-        ILoadBalancer loadBalancer = new LoadBalancer(randomInvocation);
+        ILoadBalancer loadBalancer = new LoadBalancer(randomInvocation, 1000);
         for (IProvider provider : providers) {
             assertTrue(loadBalancer.subscribe(provider));
         }
@@ -76,7 +82,7 @@ public class LoadBalancerTest {
         List<Provider> providers = IntStream.range(0, 10).mapToObj(i -> new Provider()).collect(Collectors.toList());
         InvocationStrategy randomInvocation = new RandomInvocation(providers.size());
 
-        ILoadBalancer loadBalancer = new LoadBalancer(randomInvocation);
+        ILoadBalancer loadBalancer = new LoadBalancer(randomInvocation, 1000);
         for (IProvider provider : providers) {
             assertTrue(loadBalancer.subscribe(provider));
         }
@@ -91,7 +97,7 @@ public class LoadBalancerTest {
 
         InvocationStrategy roundRobinInvocation = new RoundRobinInvocation(providers.size());
 
-        ILoadBalancer loadBalancer = new LoadBalancer(roundRobinInvocation);
+        ILoadBalancer loadBalancer = new LoadBalancer(roundRobinInvocation, 1000);
         for (IProvider provider : providers) {
             assertTrue(loadBalancer.subscribe(provider));
         }
@@ -109,5 +115,31 @@ public class LoadBalancerTest {
 
         assertTrue(IntStream.range(0, providers.size())
                 .mapToObj(i -> loadBalancer.get().orElse("")).anyMatch("Provider6"::equals));
+    }
+
+    @Test
+    public void loadBalancerShouldExcludeUnhealthyProviders() throws InterruptedException {
+        List<FakeProvider> providers = Arrays.asList(new FakeProvider(1), new FakeProvider(2));
+
+        InvocationStrategy roundRobinInvocation = new RoundRobinInvocation(2);
+
+        ILoadBalancer loadBalancer = new LoadBalancer(roundRobinInvocation, 10);
+        for (IProvider provider : providers) {
+            assertTrue(loadBalancer.subscribe(provider));
+        }
+
+        assertEquals(loadBalancer.get().orElse(""), "Provider1");
+        assertEquals(loadBalancer.get().orElse(""), "Provider2");
+
+        providers.get(0).setAlive(false);
+
+        Thread.sleep(100);
+        assertEquals(loadBalancer.get().orElse(""), "Provider2");
+        assertEquals(loadBalancer.get().orElse(""), "Provider2");
+
+        providers.get(0).setAlive(true);
+        Thread.sleep(100);
+        assertEquals(loadBalancer.get().orElse(""), "Provider1");
+        assertEquals(loadBalancer.get().orElse(""), "Provider2");
     }
 }

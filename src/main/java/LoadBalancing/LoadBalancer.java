@@ -1,23 +1,30 @@
 package LoadBalancing;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
+import java.util.stream.Collectors;
 
 public class LoadBalancer implements ILoadBalancer {
     private static final int MAX_PROVIDER_COUNT = 10;
     private final List<IProvider> providers = new ArrayList<>();
     private InvocationStrategy invocationStrategy;
-    private List<Integer> excludedProviders = new ArrayList<>();
+    private List<Boolean> includedProviders = new ArrayList<>();
 
-    public LoadBalancer(InvocationStrategy strategy) {
+    public LoadBalancer(InvocationStrategy strategy, int healthCheckInterval) {
         this.invocationStrategy = strategy;
+        Timer healthCheckTimer = new Timer("Providers Health Check");
+        TimerTask healthCheck = new TimerTask() {
+            @Override
+            public void run() {
+                checkProviders();
+            }
+        };
+        healthCheckTimer.scheduleAtFixedRate(healthCheck, healthCheckInterval, healthCheckInterval);
     }
     @Override
     public Optional<String> get() {
         int tryCount = 1;
         int providerIndex = invocationStrategy.nextProvider();
-        while (excludedProviders.contains(providerIndex) && tryCount <= providers.size()) {
+        while (!includedProviders.get(providerIndex) && tryCount <= providers.size()) {
             providerIndex = invocationStrategy.nextProvider();
             tryCount++;
         }
@@ -29,6 +36,7 @@ public class LoadBalancer implements ILoadBalancer {
     public boolean subscribe(IProvider provider) {
         if (providers.size() < MAX_PROVIDER_COUNT) {
             providers.add(provider);
+            includedProviders.add(true);
             invocationStrategy.setProvidersCount(providers.size());
             return true;
         }
@@ -38,7 +46,9 @@ public class LoadBalancer implements ILoadBalancer {
 
     @Override
     public void checkProviders() {
-
+        includedProviders = providers.stream()
+                .map(provider -> provider.check() && provider.isHealthy())
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -48,16 +58,15 @@ public class LoadBalancer implements ILoadBalancer {
 
     @Override
     public void includeProvider(int providerIndex) {
-        int index = excludedProviders.indexOf(providerIndex);
-        if (index != -1) {
-            excludedProviders.remove(index);
+        if (providerIndex >= 0 && providerIndex < providers.size()) {
+            includedProviders.set(providerIndex, true);
         }
     }
 
     @Override
     public void excludeProvider(int providerIndex) {
         if (providerIndex >= 0 && providerIndex < providers.size()) {
-            excludedProviders.add(providerIndex);
+            includedProviders.set(providerIndex, false);
         }
     }
 
