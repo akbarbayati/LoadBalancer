@@ -21,19 +21,20 @@ public class LoadBalancer implements ILoadBalancer {
         healthCheckTimer.scheduleAtFixedRate(healthCheck, healthCheckInterval, healthCheckInterval);
     }
     @Override
-    public Optional<String> get() {
+    public synchronized Optional<String> get() {
         int tryCount = 1;
         int providerIndex = invocationStrategy.nextProvider();
-        while (!includedProviders.get(providerIndex) && tryCount <= providers.size()) {
+        while ((!includedProviders.get(providerIndex) || !providers.get(providerIndex).get().isPresent()) &&
+                tryCount <= providers.size()) {
             providerIndex = invocationStrategy.nextProvider();
             tryCount++;
         }
 
-        return tryCount > providers.size() ? Optional.empty() : Optional.ofNullable(providers.get(providerIndex).get());
+        return tryCount > providers.size() ? Optional.empty() : providers.get(providerIndex).get();
     }
 
     @Override
-    public boolean subscribe(IProvider provider) {
+    public synchronized boolean subscribe(IProvider provider) {
         if (providers.size() < MAX_PROVIDER_COUNT) {
             providers.add(provider);
             includedProviders.add(true);
@@ -45,7 +46,7 @@ public class LoadBalancer implements ILoadBalancer {
     }
 
     @Override
-    public void checkProviders() {
+    public synchronized void checkProviders() {
         includedProviders = providers.stream()
                 .map(provider -> provider.check() && provider.isHealthy())
                 .collect(Collectors.toList());

@@ -10,11 +10,12 @@ import java.util.stream.IntStream;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class LoadBalancerTest {
-    class FakeProvider extends Provider {
+    static class FakeProvider extends Provider {
         private final int id;
         private boolean alive = true;
 
-        public FakeProvider(int id) {
+        public FakeProvider(int id, int capacity) {
+            super(capacity);
             this.id = id;
         }
 
@@ -28,14 +29,17 @@ public class LoadBalancerTest {
         }
 
         @Override
-        public String get() {
-            return "Provider" + id;
+        public Optional<String> get() {
+            return Optional.of("Provider" + id);
         }
     }
 
     @Test
     public void roundRobinStrategyShouldInvokeProvidersInCircularSequence() {
-        List<IProvider> providers = Arrays.asList(new FakeProvider(1), new FakeProvider(2), new FakeProvider(3));
+        List<IProvider> providers = Arrays.asList(
+                new FakeProvider(1, 2),
+                new FakeProvider(2, 3),
+                new FakeProvider(3, 4));
 
         InvocationStrategy roundRobinInvocation = new RoundRobinInvocation(providers.size());
 
@@ -53,7 +57,10 @@ public class LoadBalancerTest {
 
     @Test
     public void randomStrategyShouldInvokeProvidersRandomly() {
-        List<IProvider> providers = Arrays.asList(new FakeProvider(1), new FakeProvider(2), new FakeProvider(3));
+        List<IProvider> providers = Arrays.asList(
+                new FakeProvider(1, 2),
+                new FakeProvider(2, 3),
+                new FakeProvider(3, 4));
 
         InvocationStrategy randomInvocation = new RandomInvocation(providers.size());
 
@@ -74,12 +81,12 @@ public class LoadBalancerTest {
 
     @Test
     public void differentProvidersShouldProvideDifferentUUID() {
-        assertEquals(IntStream.range(0, 1000).mapToObj(i -> new Provider().get()).distinct().count(), 1000);
+        assertEquals(IntStream.range(0, 1000).mapToObj(i -> new Provider(5).get()).distinct().count(), 1000);
     }
 
     @Test
     public void loadBalancerShouldAcceptMaximum10Providers() {
-        List<Provider> providers = IntStream.range(0, 10).mapToObj(i -> new Provider()).collect(Collectors.toList());
+        List<Provider> providers = IntStream.range(0, 10).mapToObj(i -> new Provider(5)).collect(Collectors.toList());
         InvocationStrategy randomInvocation = new RandomInvocation(providers.size());
 
         ILoadBalancer loadBalancer = new LoadBalancer(randomInvocation, 1000);
@@ -87,13 +94,13 @@ public class LoadBalancerTest {
             assertTrue(loadBalancer.subscribe(provider));
         }
 
-        assertFalse(loadBalancer.subscribe(new Provider()));
+        assertFalse(loadBalancer.subscribe(new Provider(5)));
     }
 
     @Test
     public void loadBalancerShouldBeAbleToIncludeOrExcludeASpecifiedProvider() {
         List<IProvider> providers = IntStream.range(0, 10)
-                .mapToObj(i -> new FakeProvider(i+1)).collect(Collectors.toList());
+                .mapToObj(i -> new FakeProvider(i + 1, 5)).collect(Collectors.toList());
 
         InvocationStrategy roundRobinInvocation = new RoundRobinInvocation(providers.size());
 
@@ -119,7 +126,9 @@ public class LoadBalancerTest {
 
     @Test
     public void loadBalancerShouldExcludeUnhealthyProviders() throws InterruptedException {
-        List<FakeProvider> providers = Arrays.asList(new FakeProvider(1), new FakeProvider(2));
+        List<FakeProvider> providers = Arrays.asList(
+                new FakeProvider(1, 5),
+                new FakeProvider(2, 5));
 
         InvocationStrategy roundRobinInvocation = new RoundRobinInvocation(2);
 

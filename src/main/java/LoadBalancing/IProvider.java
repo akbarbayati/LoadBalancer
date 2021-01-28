@@ -1,7 +1,9 @@
 package LoadBalancing;
 
+import java.util.Optional;
+
 public interface IProvider {
-    String get();
+    Optional<String> get();
     boolean check();
     boolean isHealthy();
 }

@@ -10,7 +10,7 @@ public class RandomInvocation extends InvocationStrategy {
     }
 
     @Override
-    public int nextProvider() {
+    public synchronized int nextProvider() {
         return random.nextInt(providersCount);
     }
 }

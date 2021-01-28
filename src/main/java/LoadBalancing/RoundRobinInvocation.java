@@ -9,7 +9,7 @@ public class RoundRobinInvocation extends InvocationStrategy {
     }
 
     @Override
-    public int nextProvider() {
+    public synchronized int nextProvider() {
         nextProvider = (nextProvider + 1) % providersCount;
         return nextProvider;
     }
